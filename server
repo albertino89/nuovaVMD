@@ -1,0 +1,134 @@
+server <- function(input, output) {
+  output$result <- renderText({
+    age.x <- floor(as.numeric(difftime(Sys.Date(), as.Date(input$dob), units = "days"))/365.25)
+    age_text <- switch(
+      input$sex,
+      "M" = paste0("Il paziente ha ", age.x, " anni." ),
+      "F" = paste0("La paziente ha ", age.x, " anni.")
+    )
+    social_text <- switch(
+      input$sex,
+      "M" = switch(input$social,
+                   "vive solo" = "Vive da solo.",
+                   "in RSA" = "Vive in RSA.",
+                   "con altri" = paste0("Vive con ", input$live_with,".")),
+      "F" = switch(input$social,
+                   "vive solo" = "Vive da sola.",
+                   "in RSA" = "Vive in RSA.",
+                   "con altri" = paste0("Vive con ", input$live_with,"."))
+    )
+    
+    CFS_text <- switch(
+      input$sex,
+      "M" = ifelse(input$cfs <= 3, "Prima del ricovero, il paziente era autonomo nelle attività della vita quotidiana e non era affetto da fragilità",
+                   ifelse(input$cfs == 4, "Prima del ricovero, il paziente era discretamente autonomo nelle attività della vita quotidiana ed era affetto da una fragilità lieve",
+                          ifelse(input$cfs >= 7, "Prima del ricovero, il paziente era dipendente nelle attività della vita quotidiana ed era affetto da una fragilità grave. La vulnerabilità ad eventi stressanti è molto elevata",
+                                 "Prima del ricovero, il paziente era moderatamente dipendente nelle attività della vita quotidiana ed era affetto da una fragilità moderata. La vulnerabilità ad eventi stressanti è elevata"))),
+      "F" = ifelse(input$cfs <= 3, "Prima del ricovero, la paziente era autonoma nelle attività della vita quotidiana e non era affetta da fragilità",
+                   ifelse(input$cfs == 4, "Prima del ricovero, la paziente era discretamente autonoma nelle attività della vita quotidiana ed era affetta da una fragilità lieve.",
+                          ifelse(input$cfs >= 7, "Prima del ricovero, la paziente era dipendente nelle attività della vita quotidiana ed era affetta da una fragilità grave. La vulnerabilità ad eventi stressanti è molto elevata",
+                                 "Prima del ricovero, la paziente era moderatamente dipendente nelle attività della vita quotidiana ed era affetta da una fragilità moderata. La vulnerabilità ad eventi stressanti è elevata"))),
+    )
+    
+    CFS.quant.text <- paste0(" (CFS = ", input$cfs,").")
+    SARCF.quant.text <- paste0(" (SARC-F = ", input$SARCF," ; CAS dimissione = ", input$CAS_dim,").")
+    if (input$SARCF < 4)
+    {
+      if (input$CAS_ing >= 5)
+      {
+        if (input$CAS_dim >= 5)
+        {
+          if (input$SPPB > 8)
+          {
+            motoria_text <- "La capacità di muoversi autonomamente era conservata all'ingresso e non si sono osservate sostanziali modifiche durante l'ospedalizzazione. Il rischio di sarcopenia e malnutrizione è basso e la performance fisica è buona."
+          } else {
+            motoria_text <- "La capacità di muoversi autonomamente era conservata all'ingresso e non si sono osservate sostanziali modifiche durante l'ospedalizzazione. Il rischio di sarcopenia e malnutrizione è attualmente basso ma la performance fisica risulta ridotta: si consiglia di monitorare questo aspetto nel tempo."
+          }
+        } else {
+          motoria_text <- "La capacità di muoversi autonomamente era conservata all'ingresso. Durante l'ospedalizzazione, però, è stata osservata una riduzione della capacità di muoversi autonomamente e si consiglia di monitorare questo aspetto nel tempo."
+        }
+      } else if (input$CAS_dim >= 5 && input$SPPB > 8) 
+      {
+        if (input$sex == "M")
+        {
+          motoria_text <- "All'ingresso in reparto, il paziente non era in grado di muoversi autonomamente. Alla dimissione, comunque, la performance fisica è discretamente conservata."
+        } else {
+          motoria_text <- "All'ingresso in reparto, la paziente non era in grado di muoversi autonomamente. Alla dimissione, comunque, la performance fisica è discretamente conservata."
+        }
+      } else {
+        motoria_text <- ifelse(input$sex == "M", "Il paziente necessita di aiuto per muoversi e la sua funzione fisica è ridotta.",
+                               "La paziente necessita di aiuto per muoversi e la sua funzione fisica è ridotta.")
+      }
+    } else {
+      if (input$sex == "M" && input$HG <= 27)
+      {
+        if (input$CC < 34)
+        {
+          motoria_text <- "Il paziente presenta un rischio di sarcopenia e malnutrizione molto alto. Si consiglia di valutare in modo approfondito questi aspetti tra 3-6 mesi."
+        } else {
+          motoria_text <- "Il paziente presenta un rischio di sarcopenia alto. Si consiglia di rivalutare il rischio di sarcopenia e malnutrizione tra 6-12 mesi."
+        }
+      } else if (input$sex == "F" && input$HG <= 16)
+      {
+        if (input$CC < 33)
+        {
+          motoria_text <- "La paziente presenta un rischio di sarcopenia e malnutrizione molto alto. Si consiglia di valutare in modo approfondito questi aspetti tra 3-6 mesi."
+        } else {
+          motoria_text <- "La paziente presenta un rischio di sarcopenia alto. Si consiglia di rivalutare il rischio di sarcopenia e malnutrizione tra 6-12 mesi."
+        }
+      } else {
+        motoria_text <- "Il rischio di sarcopenia è moderato. Consigliamo di rivalutare il rischio di sarcopenia e malnutrizione due volte all'anno."
+      }
+    }
+    
+    ADR_text <- ifelse(input$ADR >= 4, "Il rischio di manifestare una reazione avversa ai farmaci è alto.", "Il rischio di manifestare una reazione avversa ai farmaci è basso.")
+    if (input$drugs_n < 5)
+    {
+      farmaci_text <- paste0("Durante la degenza, la terapia farmacologica è stata ottimizzata. ", ifelse(input$sex == "M", " Il paziente assume attualmente ",
+                                                                                                          "La paziente assume attualmente "), input$drugs_n, " farmaci.")
+    } else if (input$ACB >= 3)
+    {
+      farmaci_text <- paste0("Durante la degenza è stata svolta una revisione della terapia farmacologica. ", ifelse(input$sex == "M", "Il paziente assume comunque un elevato numero di farmaci, caratterizzato da un alto carico anticolinergico. ",
+                                                                                                                     "La paziente assume comunque un elevato numero di farmaci, caratterizzato da un alto carico anticolinergico. "),
+                             "Si consiglia di monitorare frequentemente le indicazioni alla prescrizione dei singoli principi attivi ed eventuali eventi avversi, ponendo particolare attenzione al possibile effetto sulla performance cognitiva.")
+    } else {
+      farmaci_text <- paste0("Durante la degenza è stata svolta una revisione della terapia farmacologica. Permane tuttavia un regime di politerapia: consigliamo di condurre una revisione farmacologica tra un anno.")
+    }
+    
+    if (input$del_prev == "Sì")
+    {
+      delirium_text <- ifelse(input$sex == "M", "All'ingresso in reparto, il paziente presentava delirium. Il rischio di sviluppare nuovamente delirium in corso di un evento acuto è pertanto elevato.",
+                              "All'ingresso in reparto, la paziente presentava delirium. Il rischio di sviluppare nuovamente delirium in corso di un evento acuto è pertanto elevato.")
+    } else if (input$del_inc == "Sì")
+    {
+      delirium_text <- ifelse(input$sex == "M", "Durante la degenza, il paziente ha sviluppato delirium. Il rischio di sviluppare nuovamente delirium in corso di un evento acuto è pertanto elevato.",
+                              "Durante la degenza, la paziente ha sviluppato delirium. Il rischio di sviluppare nuovamente delirium in corso di un evento acuto è pertato elevato.")
+    } else if (input$DRAT >= 3)
+    {
+      delirium_text <- ifelse(input$sex == "M", "Il paziente presenta diversi fattori di rischio per lo sviluppo di delirium in corso di ospedalizzazione o di eventi acuti.",
+                              "La paziente presenta diversi fattori di rischio per lo sviluppo di delirium in corso di ospedalizzazione o di eventi acuti.")
+    } else {
+      delirium_text <- "Il rischio di sviluppare delirium in corso di ospedalizzazione o eventi acuti è basso."
+    }
+    
+    if (input$minicogY == "Sì" && input$MiniCog == 3) 
+    {
+      cog_text <- "La valutazione di screening effettuata alla dimissione suggerisce un possibile decadimento cognitivo: si consiglia di rivalutare la performance cognitiva del paziente tra 6-12 mesi."
+    } else if (input$minicogY == "Sì" && input$MiniCog < 3) 
+    {
+      cog_text <- "La valutazione di screening effettuata alla dimissione suggerisce la presenza di un probabile decadimento cognitivo: si consiglia il monitoraggio periodico della performance cognitiva."
+    } else {
+      cog_text <- "La valutazione di screening effettuata alla dimissione non suggerisce la presenza di decadimento cognitivo."
+    }
+    
+    if (input$dem_dx == "Sì")
+		{
+		 cog_text <- 
+    
+    
+    
+    paste(age_text, social_text, CFS_text, CFS.quant.text, motoria_text, SARCF.quant.text,ADR_text, farmaci_text, delirium_text, cog_text, sep = " ")
+    
+  })
+  
+}
